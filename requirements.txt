@@ -3,4 +3,5 @@ Flask-PyMongo
 pandas
 openpyxl
 gunicorn
+Pillow
 pymongo[srv]
