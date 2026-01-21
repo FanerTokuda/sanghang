@@ -8,8 +8,8 @@ from flask_pymongo import PyMongo
 from bson.objectid import ObjectId
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from gridfs import GridFS               # <-- Mới: Thư viện lưu file vào Mongo
-from PIL import Image                   # <-- Mới: Thư viện nén ảnh
+from gridfs import GridFS
+from PIL import Image
 
 app = Flask(__name__)
 
@@ -19,23 +19,73 @@ app.config["MONGO_URI"] = "mongodb+srv://toiyeucf1_db_user:jRxXWUFs9dnzZXYJ@clus
 try:
     mongo = PyMongo(app)
     db = mongo.db
-    fs = GridFS(db)  # <-- Mới: Khởi tạo hệ thống file GridFS
+    fs = GridFS(db)
     mongo.cx.server_info()
     print("✅ Đã kết nối thành công tới MongoDB Atlas!")
 except Exception as e:
     print("❌ LỖI KẾT NỐI MONGO ATLAS:", e)
 
-# (Không cần UPLOAD_FOLDER nữa vì lưu vào DB rồi)
-
 # --- ROUTES ---
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
     try:
+        # --- 1. LOGIC THỐNG KÊ THÁNG (MỚI) ---
+        now = datetime.now()
+        # Lấy ngày đầu tháng hiện tại (ví dụ: 01/02/2026)
+        start_of_month = datetime(now.year, now.month, 1)
+        
+        # Lấy tất cả các ngày làm việc trong tháng này
+        month_sessions = list(db.sessions.find({'work_date': {'$gte': start_of_month}}))
+        
+        worker_stats = {} # Lưu kết quả: {'Toàn': 5, 'Tuấn': 3 ...}
+        session_ids = []
+        
+        for s in month_sessions:
+            session_ids.append(s['_id'])
+            # Tách tên người làm (VD: "Toàn, Tuấn" -> ["Toàn", "Tuấn"]) và đếm
+            if s.get('worker_name'):
+                names = [n.strip() for n in s['worker_name'].split(',')]
+                for name in names:
+                    if name:
+                        worker_stats[name] = worker_stats.get(name, 0) + 1
+        
+        # Tính tổng số Cont chỉ trong tháng này
+        month_total_pairs = 0
+        if session_ids:
+            month_total_pairs = db.pairs.count_documents({'session_id': {'$in': session_ids}})
+            
+        stats = {
+            'month': now.strftime('%m/%Y'),
+            'worker_stats': worker_stats,
+            'month_total_pairs': month_total_pairs
+        }
+
+        # --- 2. LOGIC TÌM KIẾM ---
+        search_query = request.args.get('q', '').strip()
+        search_results = []
+        
+        if search_query:
+            pairs = list(db.pairs.find({
+                '$or': [
+                    {'source_cont': {'$regex': search_query, '$options': 'i'}},
+                    {'target_cont': {'$regex': search_query, '$options': 'i'}}
+                ]
+            }))
+            
+            for p in pairs:
+                s = db.sessions.find_one({'_id': p['session_id']})
+                if s:
+                    p['work_date'] = s['work_date']
+                    p['shift'] = s['shift']
+                    search_results.append(p)
+        
+        # --- 3. LẤY DANH SÁCH LỊCH SỬ ---
         sessions = list(db.sessions.find().sort("work_date", -1))
         for s in sessions:
             s['pair_count'] = db.pairs.count_documents({'session_id': s['_id']})
-        return render_template('home.html', sessions=sessions)
+            
+        return render_template('home.html', sessions=sessions, stats=stats, search_results=search_results, search_query=search_query)
     except Exception as e:
         return f"Lỗi truy vấn: {e}"
 
@@ -68,14 +118,15 @@ def delete_session(session_id):
         for pair in pairs:
             if 'photos' in pair:
                 for filename in pair['photos']:
-                    file_doc = db.fs.files.find_one({"filename": filename})
+                    # Sửa lỗi truy cập collection
+                    file_doc = db['fs.files'].find_one({"filename": filename})
                     if file_doc: fs.delete(file_doc['_id'])
         
         # 2. Xóa dữ liệu DB
         db.pairs.delete_many({'session_id': s_id})
         db.sessions.delete_one({'_id': s_id})
     except Exception as e:
-        print(f"Lỗi khi xóa: {e}")
+        print(f"Lỗi khi xóa session: {e}")
     return redirect(url_for('home'))
 
 @app.route('/dashboard/<session_id>', methods=['GET', 'POST'])
@@ -109,6 +160,24 @@ def check_duplicate(session_id):
     existing = db.pairs.find_one({'session_id': ObjectId(session_id), 'source_cont': source_cont})
     return jsonify({'exists': True if existing else False})
 
+@app.route('/update_pair/<pair_id>', methods=['POST'])
+def update_pair(pair_id):
+    try:
+        p_id = ObjectId(pair_id)
+        new_source = request.form.get('edit_source_cont')
+        new_target = request.form.get('edit_target_cont')
+        
+        pair = db.pairs.find_one({'_id': p_id})
+        if pair and new_source and new_target:
+            db.pairs.update_one(
+                {'_id': p_id}, 
+                {'$set': {'source_cont': new_source, 'target_cont': new_target}}
+            )
+            return redirect(url_for('dashboard', session_id=str(pair['session_id'])))
+    except Exception as e:
+        print(f"Lỗi update: {e}")
+    return redirect(url_for('home'))
+
 @app.route('/delete_pair/<pair_id>')
 def delete_pair(pair_id):
     try:
@@ -117,27 +186,24 @@ def delete_pair(pair_id):
         if pair:
             if 'photos' in pair:
                 for filename in pair['photos']:
-                    file_doc = db.fs.files.find_one({"filename": filename})
+                    # Sửa lỗi truy cập collection
+                    file_doc = db['fs.files'].find_one({"filename": filename})
                     if file_doc: fs.delete(file_doc['_id'])
             db.pairs.delete_one({'_id': p_id})
             return redirect(url_for('dashboard', session_id=str(pair['session_id'])))
-    except:
-        pass
+    except Exception as e:
+        print(f"Lỗi xóa pair: {e}")
     return redirect(url_for('home'))
 
-# --- MỚI: Route để hiển thị ảnh từ Database ---
 @app.route('/image/<filename>')
 def get_image(filename):
     try:
-        # Tìm file trong GridFS
         file = fs.find_one({"filename": filename})
         if not file:
             return "Image not found", 404
         
-        # Trả về dữ liệu ảnh
         response = make_response(file.read())
         response.headers['Content-Type'] = 'image/jpeg'
-        # Cache ảnh 30 ngày để load nhanh hơn
         response.headers['Cache-Control'] = 'public, max-age=2592000'
         return response
     except Exception as e:
@@ -160,23 +226,16 @@ def upload_image(pair_id):
             timestamp = int(time.time())
             filename = secure_filename(f"{pair_id}_{timestamp}_{file.filename}")
 
-            # --- NÉN ẢNH TRƯỚC KHI LƯU (Quan trọng) ---
             img = Image.open(file)
-            # Convert sang RGB nếu là ảnh PNG/RGBA để lưu JPG
             if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-            
-            # Resize: Giới hạn chiều lớn nhất là 1024px (đủ nét xem điện thoại)
             img.thumbnail((1024, 1024))
             
-            # Lưu vào bộ nhớ đệm
             img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG', quality=70) # Nén chất lượng 70%
+            img.save(img_byte_arr, format='JPEG', quality=70)
             img_byte_arr.seek(0)
             
-            # Lưu vào GridFS
             fs.put(img_byte_arr, filename=filename, content_type='image/jpeg')
             
-            # Cập nhật tên ảnh vào danh sách
             db.pairs.update_one({'_id': p_id}, {'$push': {'photos': filename}})
 
         return redirect(url_for('dashboard', session_id=str(pair['session_id'])))
@@ -186,12 +245,11 @@ def upload_image(pair_id):
 @app.route('/delete_image/<pair_id>/<filename>')
 def delete_image(pair_id, filename):
     try:
-        # Xóa file trong GridFS
-        file_doc = db.fs.files.find_one({"filename": filename})
+        # Sửa lỗi truy cập collection
+        file_doc = db['fs.files'].find_one({"filename": filename})
         if file_doc:
             fs.delete(file_doc['_id'])
         
-        # Xóa tên file trong danh sách pairs
         db.pairs.update_one({'_id': ObjectId(pair_id)}, {'$pull': {'photos': filename}})
         
         pair = db.pairs.find_one({'_id': ObjectId(pair_id)})
@@ -208,7 +266,6 @@ def export_excel(session_id):
     data_list = []
     for index, pair in enumerate(pairs, start=1):
         photos = pair.get('photos', [])
-        # Sửa đường dẫn link ảnh trong Excel
         photo_links = [url_for('get_image', filename=p, _external=True) for p in photos]
         
         data_list.append({
@@ -241,7 +298,6 @@ def download_images(session_id):
         for pair in pairs:
             if 'photos' in pair:
                 for filename in pair['photos']:
-                    # Lấy file từ GridFS
                     file_doc = fs.find_one({"filename": filename})
                     if file_doc:
                         archive_name = f"{pair['source_cont']}_{pair['target_cont']}/{filename}"
