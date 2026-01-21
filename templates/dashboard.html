@@ -25,7 +25,10 @@
         .cont-label { font-size: 11px; color: #888; text-transform: uppercase; display: block;}
         .cont-val { font-weight: 500; color: #000; display: block; margin-bottom: 8px; font-size: 15px;}
         .pair-header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .btn-delete-pair { color: #dc3545; font-size: 18px; text-decoration: none; padding: 0 5px; font-weight: bold; cursor: pointer; }
+        .action-group { display: flex; gap: 8px; }
+        .btn-icon { text-decoration: none; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-delete-pair { color: #dc3545; }
+        .btn-edit-pair { color: #ffc107; }
         .photo-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
         .photo-wrapper { position: relative; width: 70px; height: 70px; }
         .photo-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
@@ -38,6 +41,7 @@
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
         .modal-box { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #dc3545; }
+        .modal-title-edit { color: #007bff; }
         .modal-desc { font-size: 14px; color: #333; margin-bottom: 20px; line-height: 1.5; }
         .modal-actions { display: flex; flex-direction: column; gap: 10px; }
         .btn-choice { padding: 12px; border: none; border-radius: 5px; font-size: 15px; font-weight: bold; cursor: pointer; color: white; width: 100%; }
@@ -81,6 +85,24 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-box">
+            <div class="modal-title modal-title-edit">✏️ Cập nhật thông tin</div>
+            <form id="editForm" method="POST" action="">
+                <div class="input-row">
+                    <input type="text" id="editSource" name="edit_source_cont" placeholder="CONT RÚT" required>
+                </div>
+                <div class="input-row">
+                    <input type="text" id="editTarget" name="edit_target_cont" placeholder="CONT ĐÓNG" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-choice btn-1n">💾 Lưu Thay Đổi</button>
+                    <button type="button" class="btn-choice btn-11" onclick="closeEditModal()">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="data-card">
         <table>
             <thead>
@@ -96,13 +118,16 @@
                         <div class="pair-header">
                             <div>
                                 <span class="cont-label">Rút (Nguồn):</span>
-                                <span class="cont-val">{{ pair['source_cont'] }}</span>
+                                <span class="cont-val" id="src-{{ pair['_id'] }}">{{ pair['source_cont'] }}</span>
                             </div>
-                            <a href="/delete_pair/{{ pair['_id'] }}" class="btn-delete-pair" title="Xóa cặp" onclick="return confirm('Xóa cặp này?')">&times;</a>
+                            <div class="action-group">
+                                <span class="btn-icon btn-edit-pair" onclick="openEditModal('{{ pair['_id'] }}')" title="Sửa">✎</span>
+                                <a href="/delete_pair/{{ pair['_id'] }}" class="btn-icon btn-delete-pair" title="Xóa cặp" onclick="return confirm('Xóa cặp này?')">&times;</a>
+                            </div>
                         </div>
                         <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
                         <span class="cont-label">Đóng (Đích):</span>
-                        <span class="cont-val">{{ pair['target_cont'] }}</span>
+                        <span class="cont-val" id="tgt-{{ pair['_id'] }}">{{ pair['target_cont'] }}</span>
                     </td>
                     <td>
                         <div class="photo-list" id="gallery-{{ pair['_id'] }}">
@@ -145,6 +170,7 @@
             buttons.forEach(function(btn, index) { setTimeout(function() { btn.click(); }, index * 800); });
         }
 
+        // --- Logic Duplicate Check ---
         const modal = document.getElementById('duplicateModal');
         const form = document.getElementById('addPairForm');
         const contInput = document.getElementById('sourceCont');
@@ -155,7 +181,6 @@
             const targetVal = document.querySelector('input[name="target_cont"]').value.trim();
             if (!sourceVal || !targetVal) { alert("Nhập đủ thông tin!"); return; }
 
-            // Dùng ID session từ template
             fetch('/check_duplicate/{{ session._id }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -171,6 +196,32 @@
 
         function confirm1n() { modal.style.display = 'none'; form.submit(); }
         function confirm11() { modal.style.display = 'none'; form.reset(); }
+
+        // --- Logic Edit Modal ---
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+        const editSource = document.getElementById('editSource');
+        const editTarget = document.getElementById('editTarget');
+
+        function openEditModal(pairId) {
+            // Lấy giá trị hiện tại từ giao diện
+            const currentSrc = document.getElementById('src-' + pairId).innerText;
+            const currentTgt = document.getElementById('tgt-' + pairId).innerText;
+            
+            // Điền vào form modal
+            editSource.value = currentSrc;
+            editTarget.value = currentTgt;
+            
+            // Cập nhật action của form để post về đúng ID
+            editForm.action = '/update_pair/' + pairId;
+            
+            // Hiển thị modal
+            editModal.style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            editModal.style.display = 'none';
+        }
     </script>
 </body>
 </html>
