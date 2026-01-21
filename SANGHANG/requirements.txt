@@ -1,0 +1,6 @@
+Flask
+Flask-PyMongo
+pandas
+openpyxl
+gunicorn
+pymongo[srv]

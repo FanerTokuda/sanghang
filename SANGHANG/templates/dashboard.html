@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Sang Hàng</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 10px; font-size: 14px; background-color: #f9f9f9; }
+        .header { margin-bottom: 20px; }
+        .back-link { text-decoration: none; color: #555; font-size: 14px; display: inline-block; margin-bottom: 10px;}
+        h1 { margin: 5px 0 5px 0; font-size: 20px; color: #333; }
+        .sub-info { font-size: 13px; color: #666; margin-bottom: 15px; }
+        .export-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn { padding: 8px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; border: none; cursor: pointer; color: white;}
+        .btn-excel { background-color: #217346; }
+        .btn-zip { background-color: #ffc107; color: #333; }
+        .btn-add { background-color: #007bff; width: 100%; justify-content: center; padding: 12px; font-size: 15px;}
+        .input-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .input-row input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        .data-card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+        table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+        th { background: #f1f1f1; padding: 10px; text-align: left; color: #555; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #ddd;}
+        td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .cont-label { font-size: 11px; color: #888; text-transform: uppercase; display: block;}
+        .cont-val { font-weight: 500; color: #000; display: block; margin-bottom: 8px; font-size: 15px;}
+        .pair-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .btn-delete-pair { color: #dc3545; font-size: 18px; text-decoration: none; padding: 0 5px; font-weight: bold; cursor: pointer; }
+        .photo-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
+        .photo-wrapper { position: relative; width: 70px; height: 70px; }
+        .photo-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
+        .img-action-btn { position: absolute; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 12px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3); cursor: pointer; }
+        .btn-del { top: -8px; right: -8px; background: #ff4d4d; color: white; z-index: 10;}
+        .btn-down { bottom: -8px; right: -8px; background: #fff; color: #333; border: 1px solid #ccc; z-index: 10;}
+        .camera-btn { display: inline-flex; align-items: center; justify-content: center; width: 70px; height: 70px; border: 2px dashed #007bff; border-radius: 6px; background: #f0f7ff; color: #007bff; cursor: pointer; font-size: 28px; }
+        input[type="file"] { display: none; }
+        .btn-download-set { display: block; width: 100%; margin-top: 10px; padding: 8px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; text-align: center; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-box { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #dc3545; }
+        .modal-desc { font-size: 14px; color: #333; margin-bottom: 20px; line-height: 1.5; }
+        .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+        .btn-choice { padding: 12px; border: none; border-radius: 5px; font-size: 15px; font-weight: bold; cursor: pointer; color: white; width: 100%; }
+        .btn-1n { background: #007bff; }
+        .btn-11 { background: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="back-link">&larr; Quay lại danh sách</a>
+        <h1>Ngày: {{ session.work_date.strftime('%d-%m-%Y') }}</h1>
+        <div class="sub-info">
+            Ca: <b>{{ session.shift }}</b> | 
+            Phụ trách: <b>{{ session.worker_name }}</b> ({{ session.worker_count }} người)
+        </div>
+    </div>
+
+    <div class="export-bar">
+        <a href="/export_excel/{{ session._id }}" class="btn btn-excel">📥 Xuất Excel</a>
+        <a href="/download_images/{{ session._id }}" class="btn btn-zip">📦 Tải ZIP (Tất cả)</a>
+    </div>
+
+    <div class="input-card">
+        <form method="POST" id="addPairForm">
+            <div class="input-row">
+                <input type="text" id="sourceCont" name="source_cont" placeholder="CONT RÚT" required autocomplete="off">
+                <input type="text" name="target_cont" placeholder="CONT ĐÓNG" required autocomplete="off">
+            </div>
+            <button type="button" onclick="checkDuplicateAndSubmit()" class="btn btn-add">+ Thêm Cặp Cont Mới</button>
+        </form>
+    </div>
+
+    <div class="modal-overlay" id="duplicateModal">
+        <div class="modal-box">
+            <div class="modal-title">⚠️ Phát hiện trùng Cont Rút!</div>
+            <div class="modal-desc">Cont <b id="duplicateContName"></b> đã được nhập.<br>Bạn chọn kiểu nào?</div>
+            <div class="modal-actions">
+                <button class="btn-choice btn-1n" onclick="confirm1n()">Sang 1-n (Tiếp tục)</button>
+                <button class="btn-choice btn-11" onclick="confirm11()">Sang 1-1 (Hủy)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 35%">Thông tin Cont</th>
+                    <th style="width: 65%">Hình ảnh</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pair in session.pairs %}
+                <tr>
+                    <td>
+                        <div class="pair-header">
+                            <div>
+                                <span class="cont-label">Rút (Nguồn):</span>
+                                <span class="cont-val">{{ pair['source_cont'] }}</span>
+                            </div>
+                            <a href="/delete_pair/{{ pair['_id'] }}" class="btn-delete-pair" title="Xóa cặp" onclick="return confirm('Xóa cặp này?')">&times;</a>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
+                        <span class="cont-label">Đóng (Đích):</span>
+                        <span class="cont-val">{{ pair['target_cont'] }}</span>
+                    </td>
+                    <td>
+                        <div class="photo-list" id="gallery-{{ pair['_id'] }}">
+                            {% if 'photos' in pair %}
+                                {% for photo in pair['photos'] %}
+                                <div class="photo-wrapper">
+                                    <a href="{{ url_for('static', filename='uploads/' + photo) }}" target="_blank">
+                                        <img src="{{ url_for('static', filename='uploads/' + photo) }}" class="photo-thumb">
+                                    </a>
+                                    <a href="/delete_image/{{ pair['_id'] }}/{{ photo }}" class="img-action-btn btn-del" onclick="return confirm('Xóa ảnh này?')">&times;</a>
+                                    <a href="{{ url_for('static', filename='uploads/' + photo) }}" download class="img-action-btn btn-down">⬇</a>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <form action="/upload_image/{{ pair['_id'] }}" method="POST" enctype="multipart/form-data">
+                                <label for="file-{{ pair['_id'] }}" class="camera-btn">📷</label>
+                                <input id="file-{{ pair['_id'] }}" type="file" name="photo" accept="image/*" capture="environment" onchange="this.form.submit()">
+                            </form>
+                        </div>
+                        
+                        {% if 'photos' in pair and pair['photos']|length > 0 %}
+                        <button type="button" class="btn-download-set" onclick='downloadAll("{{ pair['_id'] }}")'>
+                            ⬇ Lưu {{ pair['photos']|length }} ảnh về máy
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function downloadAll(pairId) {
+            var container = document.getElementById('gallery-' + pairId);
+            var buttons = container.querySelectorAll('.btn-down');
+            if (buttons.length === 0) { alert('Không có ảnh!'); return; }
+            alert('Đang tải ' + buttons.length + ' ảnh...');
+            buttons.forEach(function(btn, index) { setTimeout(function() { btn.click(); }, index * 800); });
+        }
+
+        const modal = document.getElementById('duplicateModal');
+        const form = document.getElementById('addPairForm');
+        const contInput = document.getElementById('sourceCont');
+        const duplicateNameDisplay = document.getElementById('duplicateContName');
+
+        function checkDuplicateAndSubmit() {
+            const sourceVal = contInput.value.trim();
+            const targetVal = document.querySelector('input[name="target_cont"]').value.trim();
+            if (!sourceVal || !targetVal) { alert("Nhập đủ thông tin!"); return; }
+
+            // Dùng ID session từ template
+            fetch('/check_duplicate/{{ session._id }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_cont: sourceVal })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) { duplicateNameDisplay.innerText = sourceVal; modal.style.display = 'flex'; }
+                else { form.submit(); }
+            })
+            .catch(error => { form.submit(); });
+        }
+
+        function confirm1n() { modal.style.display = 'none'; form.submit(); }
+        function confirm11() { modal.style.display = 'none'; form.reset(); }
+    </script>
+</body>
+</html>
