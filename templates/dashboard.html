@@ -109,18 +109,18 @@
                             {% if 'photos' in pair %}
                                 {% for photo in pair['photos'] %}
                                 <div class="photo-wrapper">
-                                    <a href="{{ url_for('static', filename='uploads/' + photo) }}" target="_blank">
-                                        <img src="{{ url_for('static', filename='uploads/' + photo) }}" class="photo-thumb">
+                                    <a href="/image/{{ photo }}" target="_blank">
+                                        <img src="/image/{{ photo }}" class="photo-thumb">
                                     </a>
                                     <a href="/delete_image/{{ pair['_id'] }}/{{ photo }}" class="img-action-btn btn-del" onclick="return confirm('Xóa ảnh này?')">&times;</a>
-                                    <a href="{{ url_for('static', filename='uploads/' + photo) }}" download class="img-action-btn btn-down">⬇</a>
+                                    <a href="/image/{{ photo }}" download class="img-action-btn btn-down">⬇</a>
                                 </div>
                                 {% endfor %}
                             {% endif %}
 
                             <form action="/upload_image/{{ pair['_id'] }}" method="POST" enctype="multipart/form-data">
                                 <label for="file-{{ pair['_id'] }}" class="camera-btn">📷</label>
-                                <input id="file-{{ pair['_id'] }}" type="file" name="photo" accept="image/*" capture="environment" onchange="this.form.submit()">
+                                <input id="file-{{ pair['_id'] }}" type="file" name="photo" accept="image/*" onchange="this.form.submit()">
                             </form>
                         </div>
                         
