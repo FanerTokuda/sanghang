@@ -120,10 +120,14 @@
                                 <span class="cont-label">Rút (Nguồn):</span>
                                 <span class="cont-val" id="src-{{ pair['_id'] }}">{{ pair['source_cont'] }}</span>
                             </div>
+                            
                             <div class="action-group">
+                                {% if current_user.role == 'admin' %}
                                 <span class="btn-icon btn-edit-pair" onclick="openEditModal('{{ pair['_id'] }}')" title="Sửa">✎</span>
                                 <a href="/delete_pair/{{ pair['_id'] }}" class="btn-icon btn-delete-pair" title="Xóa cặp" onclick="return confirm('Xóa cặp này?')">&times;</a>
+                                {% endif %}
                             </div>
+
                         </div>
                         <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
                         <span class="cont-label">Đóng (Đích):</span>
@@ -137,7 +141,11 @@
                                     <a href="/image/{{ photo }}" target="_blank">
                                         <img src="/image/{{ photo }}" class="photo-thumb">
                                     </a>
+                                    
+                                    {% if current_user.role == 'admin' %}
                                     <a href="/delete_image/{{ pair['_id'] }}/{{ photo }}" class="img-action-btn btn-del" onclick="return confirm('Xóa ảnh này?')">&times;</a>
+                                    {% endif %}
+                                    
                                     <a href="/image/{{ photo }}" download class="img-action-btn btn-down">⬇</a>
                                 </div>
                                 {% endfor %}
@@ -204,18 +212,11 @@
         const editTarget = document.getElementById('editTarget');
 
         function openEditModal(pairId) {
-            // Lấy giá trị hiện tại từ giao diện
             const currentSrc = document.getElementById('src-' + pairId).innerText;
             const currentTgt = document.getElementById('tgt-' + pairId).innerText;
-            
-            // Điền vào form modal
             editSource.value = currentSrc;
             editTarget.value = currentTgt;
-            
-            // Cập nhật action của form để post về đúng ID
             editForm.action = '/update_pair/' + pairId;
-            
-            // Hiển thị modal
             editModal.style.display = 'flex';
         }
 
