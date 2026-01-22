@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 15px; background-color: #f4f6f8; color: #333; }
-        h1 { text-align: center; color: #0056b3; margin-bottom: 20px; font-size: 24px; }
+        h1 { text-align: center; color: #0056b3; margin-bottom: 5px; font-size: 24px; }
         h3 { margin-top: 0; color: #444; border-bottom: 2px solid #ddd; padding-bottom: 10px;}
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 25px; }
         
@@ -37,13 +37,23 @@
         .badge-count { background: #e3f2fd; color: #0d47a1; }
         .badge-name { background: #fff3cd; color: #856404; }
         .btn-view { display: inline-block; padding: 6px 12px; background: #17a2b8; color: white; text-decoration: none; border-radius: 4px; font-size: 13px; margin-right: 5px; }
-        .btn-delete { display: inline-block; padding: 6px 12px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-size: 13px; }
+        .btn-delete { display: inline-block; padding: 6px 12px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
         .error-msg { color: #dc3545; font-size: 13px; display: none; margin-top: 8px; font-weight: bold; background: #fff3f3; padding: 5px; border: 1px solid #ffc9c9; border-radius: 4px; }
+        
+        /* User Bar */
+        .user-bar { text-align: center; margin-bottom: 20px; font-size: 14px; color: #555; }
+        .user-bar a { color: #dc3545; font-weight: bold; text-decoration: none; margin-left: 10px; }
     </style>
 </head>
 <body>
     <h1>QUẢN LÝ SANG HÀNG (MongoDB)</h1>
     
+    <div class="user-bar">
+        Xin chào: <b>{{ current_user.username }}</b> 
+        <span class="badge" style="vertical-align: middle;">{{ current_user.role }}</span>
+        | <a href="/logout">Đăng xuất ➜</a>
+    </div>
+
     <div class="card">
         <h3>➕ Tạo Ngày Sang Hàng Mới</h3>
         <form action="/create_session" method="POST" onsubmit="return validateForm()">
@@ -151,7 +161,10 @@
                     <td style="text-align: center;"><span class="badge badge-count">{{ s.pair_count }} cặp</span></td>
                     <td>
                         <a href="/dashboard/{{ s._id }}" class="btn-view">Xem</a>
-                        <a href="/delete_session/{{ s._id }}" class="btn-delete" onclick="return confirm('Bạn có chắc chắn muốn xóa dữ liệu ngày này không?')">Xóa</a>
+                        
+                        {% if current_user.role == 'admin' %}
+                        <a href="/delete_session/{{ s._id }}" class="btn-delete" onclick="return confirm('ADMIN: Bạn có chắc chắn muốn xóa dữ liệu ngày này không?')">Xóa</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
