@@ -5,3 +5,5 @@ openpyxl
 gunicorn
 Pillow
 pymongo[srv]
+flask-login
+werkzeug
