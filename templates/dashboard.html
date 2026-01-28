@@ -47,6 +47,7 @@
         .btn-choice { padding: 12px; border: none; border-radius: 5px; font-size: 15px; font-weight: bold; cursor: pointer; color: white; width: 100%; }
         .btn-1n { background: #007bff; }
         .btn-11 { background: #6c757d; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -120,14 +121,12 @@
                                 <span class="cont-label">Rút (Nguồn):</span>
                                 <span class="cont-val" id="src-{{ pair['_id'] }}">{{ pair['source_cont'] }}</span>
                             </div>
-                            
                             <div class="action-group">
                                 {% if current_user.role == 'admin' %}
                                 <span class="btn-icon btn-edit-pair" onclick="openEditModal('{{ pair['_id'] }}')" title="Sửa">✎</span>
                                 <a href="/delete_pair/{{ pair['_id'] }}" class="btn-icon btn-delete-pair" title="Xóa cặp" onclick="return confirm('Xóa cặp này?')">&times;</a>
                                 {% endif %}
                             </div>
-
                         </div>
                         <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
                         <span class="cont-label">Đóng (Đích):</span>
@@ -141,22 +140,24 @@
                                     <a href="/image/{{ photo }}" target="_blank">
                                         <img src="/image/{{ photo }}" class="photo-thumb">
                                     </a>
-                                    
                                     {% if current_user.role == 'admin' %}
                                     <a href="/delete_image/{{ pair['_id'] }}/{{ photo }}" class="img-action-btn btn-del" onclick="return confirm('Xóa ảnh này?')">&times;</a>
                                     {% endif %}
-                                    
                                     <a href="/image/{{ photo }}" download class="img-action-btn btn-down">⬇</a>
                                 </div>
                                 {% endfor %}
                             {% endif %}
 
-                            <form action="/upload_image/{{ pair['_id'] }}" method="POST" enctype="multipart/form-data">
-                                <label for="file-{{ pair['_id'] }}" class="camera-btn">📷</label>
-                                <input id="file-{{ pair['_id'] }}" type="file" name="photo" accept="image/*" onchange="this.form.submit()">
-                            </form>
+                            <div class="upload-container" style="position: relative;">
+                                <div id="loading-{{ pair['_id'] }}" style="display:none; position:absolute; top:0; left:0; width:70px; height:70px; background:rgba(255,255,255,0.85); border-radius:6px; align-items:center; justify-content:center; z-index:20;">
+                                    <div style="border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite;"></div>
+                                </div>
+                                <form>
+                                    <label for="file-{{ pair['_id'] }}" class="camera-btn">📷</label>
+                                    <input id="file-{{ pair['_id'] }}" type="file" accept="image/*" onchange="handleUpload(this, '{{ pair['_id'] }}')">
+                                </form>
+                            </div>
                         </div>
-                        
                         {% if 'photos' in pair and pair['photos']|length > 0 %}
                         <button type="button" class="btn-download-set" onclick='downloadAll("{{ pair['_id'] }}")'>
                             ⬇ Lưu {{ pair['photos']|length }} ảnh về máy
@@ -174,11 +175,9 @@
             var container = document.getElementById('gallery-' + pairId);
             var buttons = container.querySelectorAll('.btn-down');
             if (buttons.length === 0) { alert('Không có ảnh!'); return; }
-            alert('Đang tải ' + buttons.length + ' ảnh...');
             buttons.forEach(function(btn, index) { setTimeout(function() { btn.click(); }, index * 800); });
         }
 
-        // --- Logic Duplicate Check ---
         const modal = document.getElementById('duplicateModal');
         const form = document.getElementById('addPairForm');
         const contInput = document.getElementById('sourceCont');
@@ -205,7 +204,6 @@
         function confirm1n() { modal.style.display = 'none'; form.submit(); }
         function confirm11() { modal.style.display = 'none'; form.reset(); }
 
-        // --- Logic Edit Modal ---
         const editModal = document.getElementById('editModal');
         const editForm = document.getElementById('editForm');
         const editSource = document.getElementById('editSource');
@@ -220,8 +218,63 @@
             editModal.style.display = 'flex';
         }
 
-        function closeEditModal() {
-            editModal.style.display = 'none';
+        function closeEditModal() { editModal.style.display = 'none'; }
+
+        async function handleUpload(input, pairId) {
+            if (input.files.length === 0) return;
+            const file = input.files[0];
+            const loadingDiv = document.getElementById('loading-' + pairId);
+            if(loadingDiv) loadingDiv.style.display = 'flex';
+            try {
+                const compressedFile = await compressImage(file, 1024, 0.7);
+                const formData = new FormData();
+                formData.append('photo', compressedFile, file.name);
+                const response = await fetch('/upload_image/' + pairId, { method: 'POST', body: formData });
+                if (response.ok) {
+                    const htmlText = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    const newGalleryContent = doc.getElementById('gallery-' + pairId).innerHTML;
+                    document.getElementById('gallery-' + pairId).innerHTML = newGalleryContent;
+                } else {
+                    alert('Lỗi upload từ server!');
+                    if(loadingDiv) loadingDiv.style.display = 'none';
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Lỗi: ' + error.message);
+                if(loadingDiv) loadingDiv.style.display = 'none';
+            }
+        }
+
+        function compressImage(file, maxWidth, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxWidth) {
+                            height = Math.round(height * (maxWidth / width));
+                            width = maxWidth;
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                            if (!blob) { reject(new Error('Canvas empty')); return; }
+                            resolve(blob);
+                        }, 'image/jpeg', quality);
+                    };
+                    img.onerror = (err) => reject(err);
+                };
+                reader.onerror = (err) => reject(err);
+            });
         }
     </script>
 </body>
