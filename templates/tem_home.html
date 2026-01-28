@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản Lý Tem Xe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 15px; background-color: #fff8e1; color: #333; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e67e22; padding-bottom: 10px; }
+        h1 { color: #d35400; margin: 0; font-size: 22px; }
+        
+        .btn-home { text-decoration: none; background: #555; color: white; padding: 8px 15px; border-radius: 5px; font-size: 14px; font-weight: bold; }
+        .btn-home:hover { background: #333; }
+
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 5px solid #d35400; }
+        h3 { margin-top: 0; color: #d35400; }
+
+        form { display: flex; gap: 10px; flex-wrap: wrap; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; flex: 1; }
+        button { padding: 10px 20px; background: #d35400; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        button:hover { background: #ba4a00; }
+
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #d35400; color: white; text-transform: uppercase; font-size: 12px; }
+        tr:hover { background-color: #fff3e0; }
+
+        .badge { background: #eee; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #555; }
+        
+        .btn-view { text-decoration: none; color: white; background-color: #007bff; padding: 5px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; }
+        .btn-del { color: white; background-color: #dc3545; padding: 5px 10px; border-radius: 4px; margin-left: 5px; text-decoration: none; font-size: 13px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚗 QUẢN LÝ TEM XE</h1>
+        <a href="/" class="btn-home">🏠 Về trang Sang Hàng</a>
+    </div>
+
+    <div class="card">
+        <h3>➕ Tạo Ngày Dán Tem Mới</h3>
+        <form action="/create_tem_session" method="POST">
+            <input type="date" name="work_date" required>
+            <input type="text" name="worker_name" placeholder="Người dán (VD: Tuấn, Phúc)" required autocomplete="off">
+            <button type="submit">Tạo Mới</button>
+        </form>
+    </div>
+
+    <h3>📜 Danh sách ngày làm việc</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Ngày</th>
+                <th>Người làm</th>
+                <th>Số lượng xe</th>
+                <th>Hành động</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in sessions %}
+            <tr>
+                <td><b>{{ s.work_date.strftime('%d-%m-%Y') }}</b></td>
+                <td>{{ s.worker_name }}</td>
+                <td><span class="badge">{{ s.item_count }} xe</span></td>
+                <td>
+                    <a href="{{ url_for('tem_dashboard', session_id=s._id) }}" class="btn-view">Vào xem</a>
+                    
+                    {% if current_user.role == 'admin' %}
+                    <a href="/delete_tem_session/{{ s._id }}" class="btn-del" onclick="return confirm('ADMIN: Bạn có chắc muốn xóa toàn bộ dữ liệu ngày này?')">Xóa</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align:center; padding: 20px; color: #888;">Chưa có dữ liệu nào. Hãy tạo mới!</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
