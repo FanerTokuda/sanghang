@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Chi Tiết Dán Tem</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 10px; font-size: 14px; background-color: #fff8e1; }
+        .header { margin-bottom: 20px; }
+        .back-link { text-decoration: none; color: #555; font-size: 14px; display: inline-block; margin-bottom: 10px;}
+        h1 { margin: 5px 0 5px 0; font-size: 20px; color: #d35400; }
+        .sub-info { font-size: 13px; color: #666; margin-bottom: 15px; }
+        .export-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn { padding: 8px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; border: none; cursor: pointer; color: white;}
+        .btn-zip { background-color: #ffc107; color: #333; }
+        .btn-add { background-color: #d35400; width: 100%; justify-content: center; padding: 12px; font-size: 15px;}
+        
+        .input-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 5px solid #d35400; }
+        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .input-row input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        
+        .data-card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+        table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+        th { background: #fcefe3; padding: 10px; text-align: left; color: #d35400; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #ddd;}
+        td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+        
+        .cont-label { font-size: 11px; color: #888; text-transform: uppercase; display: block;}
+        .cont-val { font-weight: 500; color: #000; display: block; margin-bottom: 8px; font-size: 16px; color: #007bff;}
+        .note-val { color: #555; font-style: italic; font-size: 13px;}
+
+        .pair-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .btn-delete-pair { color: #dc3545; text-decoration: none; font-weight: bold; font-size: 16px; cursor: pointer;}
+
+        .photo-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
+        .photo-wrapper { position: relative; width: 70px; height: 70px; }
+        .photo-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
+        .img-action-btn { position: absolute; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 12px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.3); cursor: pointer; }
+        .btn-del { top: -8px; right: -8px; background: #ff4d4d; color: white; z-index: 10;}
+        .btn-down { bottom: -8px; right: -8px; background: #fff; color: #333; border: 1px solid #ccc; z-index: 10;}
+        .camera-btn { display: inline-flex; align-items: center; justify-content: center; width: 70px; height: 70px; border: 2px dashed #d35400; border-radius: 6px; background: #fff8e1; color: #d35400; cursor: pointer; font-size: 28px; }
+        input[type="file"] { display: none; }
+        .btn-download-set { display: block; width: 100%; margin-top: 10px; padding: 8px; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; text-align: center; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/tem_xe" class="back-link">&larr; Quay lại danh sách Tem</a>
+        <h1>Ngày: {{ data.work_date.strftime('%d-%m-%Y') }}</h1>
+        <div class="sub-info">
+            Người dán: <b>{{ data.worker_name }}</b>
+        </div>
+    </div>
+
+    <div class="export-bar">
+        <a href="/download_tem_images/{{ data._id }}" class="btn btn-zip">📦 Tải ZIP (Tất cả Tem)</a>
+    </div>
+
+    <div class="input-card">
+        <form method="POST">
+            <div class="input-row">
+                <input type="text" name="plate_number" placeholder="NHẬP BIỂN SỐ XE" required autocomplete="off">
+                <input type="text" name="note" placeholder="Loại tem / Ghi chú" autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-add">+ Thêm Xe Mới</button>
+        </form>
+    </div>
+
+    <div class="data-card">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 35%">Thông tin Xe</th>
+                    <th style="width: 65%">Hình ảnh Tem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data.car_list %}
+                <tr>
+                    <td>
+                        <div class="pair-header">
+                            <div>
+                                <span class="cont-label">Biển số:</span>
+                                <span class="cont-val">{{ item.plate_number }}</span>
+                                <span class="note-val">{{ item.note }}</span>
+                            </div>
+                            
+                            {% if current_user.role == 'admin' %}
+                            <a href="/delete_tem_item/{{ item._id }}" class="btn-delete-pair" onclick="return confirm('Xóa xe này?')">&times;</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="photo-list" id="gallery-{{ item._id }}">
+                            {% if 'photos' in item %}
+                                {% for photo in item['photos'] %}
+                                <div class="photo-wrapper">
+                                    <a href="/image/{{ photo }}" target="_blank">
+                                        <img src="/image/{{ photo }}" class="photo-thumb">
+                                    </a>
+                                    
+                                    {% if current_user.role == 'admin' %}
+                                    <a href="/delete_tem_image/{{ item._id }}/{{ photo }}" class="img-action-btn btn-del" onclick="return confirm('Xóa ảnh này?')">&times;</a>
+                                    {% endif %}
+                                    
+                                    <a href="/image/{{ photo }}" download class="img-action-btn btn-down">⬇</a>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <div class="upload-container" style="position: relative;">
+                                <div id="loading-{{ item._id }}" style="display:none; position:absolute; top:0; left:0; width:70px; height:70px; background:rgba(255,255,255,0.85); border-radius:6px; align-items:center; justify-content:center; z-index:20;">
+                                    <div style="border: 3px solid #f3f3f3; border-top: 3px solid #d35400; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite;"></div>
+                                </div>
+
+                                <form>
+                                    <label for="file-{{ item._id }}" class="camera-btn">📷</label>
+                                    <input id="file-{{ item._id }}" type="file" accept="image/*" onchange="handleUpload(this, '{{ item._id }}')">
+                                </form>
+                            </div>
+                        </div>
+                        
+                        {% if 'photos' in item and item['photos']|length > 0 %}
+                        <button type="button" class="btn-download-set" onclick='downloadAll("{{ item._id }}")'>
+                            ⬇ Tải {{ item['photos']|length }} ảnh xe này
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function downloadAll(itemId) {
+            var container = document.getElementById('gallery-' + itemId);
+            var buttons = container.querySelectorAll('.btn-down');
+            if (buttons.length === 0) { alert('Không có ảnh!'); return; }
+            buttons.forEach(function(btn, index) { setTimeout(function() { btn.click(); }, index * 800); });
+        }
+
+        async function handleUpload(input, itemId) {
+            if (input.files.length === 0) return;
+            const file = input.files[0];
+            const loadingDiv = document.getElementById('loading-' + itemId);
+            if(loadingDiv) loadingDiv.style.display = 'flex';
+            try {
+                const compressedFile = await compressImage(file, 1024, 0.7);
+                const formData = new FormData();
+                formData.append('photo', compressedFile, file.name);
+                const response = await fetch('/upload_tem_image/' + itemId, { method: 'POST', body: formData });
+                if (response.ok) {
+                    const htmlText = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    const newGalleryContent = doc.getElementById('gallery-' + itemId).innerHTML;
+                    document.getElementById('gallery-' + itemId).innerHTML = newGalleryContent;
+                } else {
+                    alert('Lỗi upload từ server!');
+                    if(loadingDiv) loadingDiv.style.display = 'none';
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Lỗi: ' + error.message);
+                if(loadingDiv) loadingDiv.style.display = 'none';
+            }
+        }
+
+        function compressImage(file, maxWidth, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxWidth) {
+                            height = Math.round(height * (maxWidth / width));
+                            width = maxWidth;
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                            if (!blob) { reject(new Error('Canvas empty')); return; }
+                            resolve(blob);
+                        }, 'image/jpeg', quality);
+                    };
+                    img.onerror = (err) => reject(err);
+                };
+                reader.onerror = (err) => reject(err);
+            });
+        }
+    </script>
+</body>
+</html>
